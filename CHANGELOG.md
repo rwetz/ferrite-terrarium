@@ -4,6 +4,19 @@ All notable changes to Terrarium are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.1.1] - 2026-10-07
+
+### Fixed
+
+- Maximized or fullscreen, the jar is drawn at 2× or 3× (the largest
+  crisp size that fits) and sits centered instead of small in a corner.
+- The window reopens at the size, place and state it was closed in, and
+  the first one fits the screen.
+- "Start a new jar?": the buttons no longer spill out of the dialog at
+  high display scaling (fixed in ferrite-design).
+- The log's labels are measured in font cells, so they line up at any
+  display scaling.
+
 ## [0.1.0] - 2026-10-07
 
 The first release.
