@@ -10,6 +10,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod settings;
+mod settings_view;
 mod sim;
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -42,6 +43,7 @@ fn fresh_seed() -> u64 {
 
 struct Terrarium {
     settings: Settings,
+    settings_open: bool,
     jar: Jar,
     /// `--days`: a made-up jar to look at, never saved.
     preview: bool,
@@ -88,6 +90,7 @@ impl Terrarium {
         let mut t = Self {
             life: sim::live(&jar, now, utc_offset()),
             settings,
+            settings_open: std::env::args().any(|arg| arg == "--settings"),
             jar,
             preview,
             now,
@@ -98,10 +101,19 @@ impl Terrarium {
             toaster: cx.new(|_| Toaster::new()),
             _appearance: theme::follow_system(window),
         };
+        // Shared launch defaults apply until this app has saved its own preferences.
         t.apply_look(window, cx);
-        // Lodestone hands over its shared look as FERRITE_* variables; when
-        // launched that way, those win over the saved settings.
         theme::apply_env(cx);
+        if Settings::path().is_some_and(|path| path.exists()) {
+            t.apply_look(window, cx);
+        } else {
+            t.settings.scheme = theme::scheme(cx).key.into();
+            t.settings.appearance = match theme::appearance(cx) {
+                Appearance::Light => "light", Appearance::System => "system", Appearance::Dark => "dark",
+            }.into();
+            t.settings.fps = motion::fps();
+            t.apply_look(window, cx);
+        }
         t.set_commands(cx);
         if first_jar {
             t.save(cx);
@@ -152,6 +164,7 @@ impl Terrarium {
             }
         };
         let mut commands = vec![
+            command("Settings").icon(Icon::Sliders).shortcut("Ctrl+,").on_run(run(|this, _, cx| { this.settings_open = true; cx.notify(); })),
             command("Water").group("Jar").icon(Icon::Plus).shortcut("W").on_run(run(|this, _, cx| this.water(cx))),
             command("Start a new jar…").group("Jar").icon(Icon::Refresh).on_run(run(|this, _, cx| {
                 this.confirm_new = true;
@@ -351,6 +364,9 @@ impl Render for Terrarium {
             }
         };
 
+        let drawer = self.settings_drawer(window, cx);
+        let gear = Button::new("open-settings").icon(Icon::Sliders).ghost().small().tooltip("Settings · Ctrl+,")
+            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| { this.settings_open = !this.settings_open; cx.notify(); }));
         window_frame().child(power_on_in(
             "power",
             div()
@@ -361,10 +377,12 @@ impl Render for Terrarium {
                 .text_color(hsla(p.fg))
                 .body(text::BASE)
                 .on_action(cx.listener(|this, _: &TogglePalette, window, cx| this.palette.update(cx, |p, cx| p.toggle(window, cx))))
+                .on_action(cx.listener(|this, _: &OpenSettings, _, cx| { this.settings_open = true; cx.notify(); }))
                 .on_action(cx.listener(|this, _: &Water, _, cx| this.water(cx)))
                 .child(self.palette.clone())
                 .child(self.toaster.clone())
-                .child(title_bar("Terrarium"))
+                .child(title_bar("Terrarium").child(gear))
+                .child(drawer)
                 .child(
                     div()
                         .flex()
@@ -400,12 +418,12 @@ impl Render for Terrarium {
     }
 }
 
-gpui::actions!(terrarium, [Water]);
+gpui::actions!(terrarium, [Water, OpenSettings]);
 
 fn main() {
     gpui_platform::application().run(|cx: &mut App| {
         ferrite_design::init(Appearance::Dark, cx);
-        cx.bind_keys([KeyBinding::new("ctrl-shift-p", TogglePalette, None), KeyBinding::new("w", Water, None)]);
+        cx.bind_keys([KeyBinding::new("ctrl-shift-p", TogglePalette, None), KeyBinding::new("w", Water, None), KeyBinding::new("ctrl-,", OpenSettings, None)]);
         let options = chrome::window_options("Terrarium", size(px(1000.), px(600.)), cx);
         cx.open_window(options, |window, cx| {
             chrome::square_corners(window);

@@ -77,6 +77,8 @@ xcodebuild -downloadComponent MetalToolchain
 
 ## Configuration
 
+Open Settings with the title-bar button or **Ctrl+,** to change scheme, appearance, or FPS.
+
 The look and the jar are saved as plain `key = value` lines:
 
 | OS | Settings |
@@ -99,7 +101,7 @@ watered = 1791234567  # one line per watering
 | Flag / variable | Effect |
 |---|---|
 | `--days N` | Shows a preview jar planted N days ago and watered every three days. Nothing is saved. |
-| `FERRITE_*` | The shared look from [Lodestone](https://github.com/rwetz/ferrite-lodestone); wins over the saved scheme and appearance. |
+| `FERRITE_*` | The shared look from [Lodestone](https://github.com/rwetz/ferrite-lodestone); provides defaults until the app saves its own preferences. |
 
 ## With Lodestone
 
