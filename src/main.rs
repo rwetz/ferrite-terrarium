@@ -235,7 +235,7 @@ impl Terrarium {
     }
 
     /// The jar's inside, as runs of same-coloured characters per row.
-    fn jar_view(&self, window: &mut Window, cx: &App) -> impl IntoElement + use<> {
+    fn jar_view(&self, scale: Scale, window: &mut Window, cx: &App) -> impl IntoElement + use<> {
         let grid = sim::draw(&self.jar, &self.life, self.now / 60);
         let rows: Vec<_> = grid
             .iter()
@@ -251,7 +251,7 @@ impl Terrarium {
                 div()
                     .flex()
                     .flex_row()
-                    .display(Scale::X1, window)
+                    .display(scale, window)
                     .whitespace_nowrap()
                     .children(runs.into_iter().map(|(ink, s)| div().text_color(self.ink(ink, cx)).child(s)))
             })
@@ -269,7 +269,8 @@ impl Terrarium {
                 .flex_row()
                 .display(Scale::X1, window)
                 .whitespace_nowrap()
-                .child(div().w(px(96.)).text_color(hsla(p.fg_dim)).child(label.to_uppercase()))
+                // In font cells, not px: the face snaps to whole device pixels.
+                .child(div().flex_none().w(cells(10., window)).text_color(hsla(p.fg_dim)).child(label.to_uppercase()))
                 .child(div().text_color(hsla(p.fg)).child(value.to_uppercase()))
         };
         let since_water = self.jar.waterings.last().map(|w| (self.now - w).max(0));
@@ -310,7 +311,7 @@ impl Terrarium {
             .flex()
             .flex_col()
             .gap_3()
-            .w(px(330.))
+            .w(cells(LOG_COLS as f32, window))
             .children(rows)
             .child(ascii_gauge(life.moisture).label("soil").cells(16))
             .child(ascii_gauge(life.light).label("sun").cells(16))
@@ -340,11 +341,29 @@ impl Render for Terrarium {
         let day = self.life.age_days.floor() as u32 + 1;
         let daylight = self.life.light > 0.;
         let stage = sim::stage_name(self.life.growth).to_uppercase();
+        // gpui has no zoom: the jar goes up to the largest crisp multiple of
+        // the face that the window has room for beside the log.
+        let viewport = window.viewport_size();
+        let cell = display_size(Scale::X1, window);
+        let room = gpui::size(
+            viewport.width - cells(LOG_COLS as f32 + 8., window) - space::ROW * 3.,
+            viewport.height - chrome::TITLE_BAR_HEIGHT - px(24.) - space::ROW * 2.,
+        );
+        // The grid at 1×, plus the frame and its title row.
+        let natural = gpui::size(cell / 2. * (sim::COLS + 4) as f32, cell * (sim::ROWS + 3) as f32);
+        let scale = match whole_scale(room, natural, 3) {
+            3 => Scale::X3,
+            2 => Scale::X2,
+            _ => Scale::X1,
+        };
         let jar = ascii_box().title(if self.preview { "jar (preview)" } else { "jar" }).double().child(
             // The jar shakes a little when it's watered.
-            shake("jar-shake", self.watered, self.jar_view(window, cx)),
+            shake("jar-shake", self.watered, self.jar_view(scale, window, cx)),
         );
-        let log = ascii_box().title("log").child(self.log_view(window, cx));
+        // The log gives way first if the window is tight; the jar never does.
+        let log = div().flex_shrink(1.).min_w_0().overflow_hidden().child(ascii_box().title("log").child(self.log_view(window, cx)));
+        // Never squeezed under its content (the grid is fixed-width text).
+        let jar = div().flex_none().child(jar);
         let close = {
             let weak = cx.weak_entity();
             move |_: &mut Window, cx: &mut App| {
@@ -389,7 +408,8 @@ impl Render for Terrarium {
                         .flex_row()
                         .flex_1()
                         .min_h_0()
-                        .items_start()
+                        // Spare height goes around the jar, not under it.
+                        .items_center()
                         .justify_center()
                         .gap(space::ROW)
                         .p(space::ROW)
@@ -418,15 +438,24 @@ impl Render for Terrarium {
     }
 }
 
+/// The log's width, in display cells.
+const LOG_COLS: usize = 34;
+
+/// `n` display-face cells at `Scale::X1`, on this window's display.
+fn cells(n: f32, window: &Window) -> gpui::Pixels {
+    display_size(Scale::X1, window) / 2. * n
+}
+
 gpui::actions!(terrarium, [Water, OpenSettings]);
 
 fn main() {
     gpui_platform::application().run(|cx: &mut App| {
         ferrite_design::init(Appearance::Dark, cx);
         cx.bind_keys([KeyBinding::new("ctrl-shift-p", TogglePalette, None), KeyBinding::new("w", Water, None), KeyBinding::new("ctrl-,", OpenSettings, None)]);
-        let options = chrome::window_options("Terrarium", size(px(1000.), px(600.)), cx);
+        let options = chrome::remembered_window_options("terrarium", "Terrarium", size(px(1180.), px(680.)), cx);
         cx.open_window(options, |window, cx| {
             chrome::square_corners(window);
+            chrome::remember_window("terrarium", window, cx);
             chrome::power_off_on_close(window, cx);
             cx.new(|cx| Terrarium::new(window, cx))
         })
