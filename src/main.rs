@@ -449,6 +449,10 @@ fn cells(n: f32, window: &Window) -> gpui::Pixels {
 gpui::actions!(terrarium, [Water, OpenSettings]);
 
 fn main() {
+    if std::env::args().any(|arg| arg == "--version") {
+        println!("{} {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+        return;
+    }
     gpui_platform::application().run(|cx: &mut App| {
         ferrite_design::init(Appearance::Dark, cx);
         cx.bind_keys([KeyBinding::new("ctrl-shift-p", TogglePalette, None), KeyBinding::new("w", Water, None), KeyBinding::new("ctrl-,", OpenSettings, None)]);
