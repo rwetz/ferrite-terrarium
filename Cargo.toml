@@ -1,6 +1,6 @@
 [package]
 name = "ferrite-terrarium"
-version = "0.2.0"
+version = "0.2.2"
 description = "A Ferrite terrarium: a slow text-mode garden that grows over real days while you are away."
 authors = ["Ryan Wetzstein"]
 license = "Apache-2.0"
