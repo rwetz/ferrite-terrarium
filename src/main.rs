@@ -360,8 +360,12 @@ impl Render for Terrarium {
             // The jar shakes a little when it's watered.
             shake("jar-shake", self.watered, self.jar_view(scale, window, cx)),
         );
-        // The log gives way first if the window is tight; the jar never does.
-        let log = div().flex_shrink(1.).min_w_0().overflow_hidden().child(ascii_box().title("log").child(self.log_view(window, cx)));
+        // When the log doesn't fit beside the jar it wraps underneath; the
+        // jar is never squeezed.
+        let log = div().flex_none().max_w_full().overflow_hidden().child(ascii_box().title("log").child(self.log_view(window, cx)));
+        // Centre only what fits: a jar wider than the window starts at the
+        // left edge instead of being cut on both sides.
+        let fits = viewport.width >= natural.width + space::ROW * 2. + ferrite_design::components::scroll::WIDTH;
         // Never squeezed under its content (the grid is fixed-width text).
         let jar = div().flex_none().child(jar);
         let close = {
@@ -403,18 +407,22 @@ impl Render for Terrarium {
                 .child(title_bar("Terrarium").child(gear))
                 .child(drawer)
                 .child(
-                    div()
-                        .flex()
-                        .flex_row()
-                        .flex_1()
-                        .min_h_0()
-                        // Spare height goes around the jar, not under it.
-                        .items_center()
-                        .justify_center()
-                        .gap(space::ROW)
-                        .p(space::ROW)
-                        .child(jar)
-                        .child(log),
+                    // Short windows scroll from the top.
+                    scroll_area("tank").flex_1().min_h_0().child(
+                        div()
+                            .flex()
+                            .flex_row()
+                            .flex_wrap()
+                            .min_h_full()
+                            // Spare height goes around the jar, not under it.
+                            .items_center()
+                            .content_center()
+                            .when(fits, |row| row.justify_center())
+                            .gap(space::ROW)
+                            .p(space::ROW)
+                            .child(jar)
+                            .child(log),
+                    ),
                 )
                 .child(
                     dialog("new-jar-dialog")

@@ -4,6 +4,10 @@ All notable changes to Terrarium are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+- Short windows scroll from the top, and the log wraps under the jar when it doesn't fit beside it.
+
 ## [0.2.0] - 2026-10-09
 
 ### Changed
